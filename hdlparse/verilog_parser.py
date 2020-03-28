@@ -5,7 +5,8 @@ from __future__ import print_function
 
 import re, os, io, ast, pprint, collections
 from minilexer import MiniLexer
-
+import os.path
+from os import path
 '''Verilog documentation parser'''
 
 verilog_tokens = {
@@ -40,6 +41,7 @@ verilog_tokens = {
   'block_comment': [
     (r'\*/', 'end_comment', '#pop'),
   ],
+
 }
 
 
@@ -272,4 +274,52 @@ class VerilogExtractor(object):
       True when a data type is an array.
     '''
     return '[' in data_type
+
+class InstExtractor(object):
+  '''Utility class that caches parsed objects'''
+  def __init__(self):
+    self.object_cache = {}
+  
+  def extract_inst(self, fname, count, type_filter=None,moduleList=None):
+    '''Extract objects from a source file
+
+    Args:
+      fname(str): Name of file to read from
+      type_filter (class, optional): Object class to filter results
+    Returns:
+      List of objects extracted from the file.
+    '''
+    objects = []
+    if fname in self.object_cache:
+      objects = self.object_cache[fname]
+    else:
+      with io.open(fname, 'rt', encoding='utf-8') as fh:
+        text = fh.read()
+    pattern = re.compile(r"u_|U_")
+    instObj = re.findall(r'\b(u_\w+|U_\w+)', text)
+    
+    if(moduleList == None):
+        moduleList = []
+
+    for o in instObj:
+        mod_name    = (pattern.split(o)[1]).lower() 
+        fname_v     = mod_name +'.v' 
+        fname_vhdl  = mod_name +'.vhd' 
+        for i in range(0,2):
+            print('\t|'.expandtabs(count*4))
+        mod = '\t|---'+mod_name
+        print(mod.expandtabs(count*4))
+        if (path.exists(fname_v)==True):       
+            obj = self.extract_inst(fname_v, count+1)
+            moduleList.append(obj) if obj is not None else None 
+        elif(path.exists(fname_vhdl)==True):
+            obj = self.extract_inst(fname_vhdl,count+1) 
+            moduleList.append(obj) if obj is not None  else None 
+        #print('module '+(pattern.split(o)[1]).lower()+' doesnot exists in the folder')
+        #moduleList.append(mod_name) #if mod_name is not None else None 
+    if moduleList == []:
+        return None
+    else:
+        return moduleList
+
 
